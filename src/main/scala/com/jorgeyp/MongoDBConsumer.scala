@@ -1,12 +1,11 @@
 package com.jorgeyp
 
-import java.util.Properties
-
 import akka.actor.ActorSystem
 import akka.kafka.scaladsl.Consumer
 import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.bson.BsonDocument
@@ -26,32 +25,21 @@ object MongoDBConsumer extends App with LogSupport {
 
   implicit val ec: ExecutionContextExecutor = ExecutionContext.global
 
-  // TODO extract to args or config
-  val topic="meetup"
-  val props = new Properties()
-  props.put("bootstrap.servers", "localhost:9092")
-  props.put("group.id", "MongoDBConsumer")
-  props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
-  props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
-
-  private val client = MongoClient(s"mongodb://localhost:27017")
-  private val db = client.getDatabase("meetup")
-  private val collection = db.getCollection("rsvp")
+  val config: Config = ConfigFactory.load("application.conf")
 
 
+  private val client = MongoClient(config.getString("mongodb.url"))
+  private val db = client.getDatabase(config.getString("mongodb.database"))
+  private val collection = db.getCollection(config.getString("mongodb.collection"))
 
-  val config = system.settings.config.getConfig("akka.kafka.consumer")
+  val kafkaConfig = system.settings.config.getConfig("akka.kafka.consumer")
   val consumerSettings =
-    ConsumerSettings(config, new StringDeserializer, new StringDeserializer)
-      .withBootstrapServers("localhost:9092")
+    ConsumerSettings(kafkaConfig, new StringDeserializer, new StringDeserializer)
+      .withBootstrapServers(config.getString("kafka.servers"))
       .withGroupId("MongoDBConsumer")
 
-  case class Location(x: Float, y: Float)
-
-
-
   val done = Consumer
-    .plainSource(consumerSettings, Subscriptions.topics("meetup"))
+    .plainSource(consumerSettings, Subscriptions.topics(config.getString("kafka.topic")))
     .runWith(Sink.foreach {
       case cr: ConsumerRecord[String, String] =>
         info(cr.value())

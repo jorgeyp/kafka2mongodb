@@ -21,3 +21,5 @@ libraryDependencies += "org.mongodb.scala" %% "mongo-scala-driver" % "2.3.0"
 libraryDependencies += "org.wvlet.airframe" %% "airframe-log" % "19.2.0"
 
 libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.25"
+
+libraryDependencies += "com.typesafe" % "config" % "1.3.2"
