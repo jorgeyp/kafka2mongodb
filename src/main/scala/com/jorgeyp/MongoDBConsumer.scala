@@ -1,5 +1,7 @@
 package com.jorgeyp
 
+import java.util.Date
+
 import akka.actor.ActorSystem
 import akka.kafka.scaladsl.Consumer
 import akka.kafka.{ConsumerSettings, Subscriptions}
@@ -44,17 +46,22 @@ object MongoDBConsumer extends App with LogSupport {
       case cr: ConsumerRecord[String, String] =>
         info(cr.value())
         val doc: Document = Document(cr.value())
+
         val group: BsonDocument = doc("group").asDocument()
-        val geodoc = doc + ("group_location" -> Document(
+        val event = doc("event").asDocument()
+        val eventTime = new Date(event.get("time").asInt64().getValue)
+
+        val transformedDoc = doc + ("group_location" -> Document(
           "type" -> "Point",
           "coordinates" -> BsonArray(List(group.get("group_lon"), group.get("group_lat"))),
-        ))
+        )) + ("event_time" -> eventTime)
 
-        val inserted: Observable[Completed] = collection.insertOne(geodoc)
+
+        val inserted: Observable[Completed] = collection.insertOne(transformedDoc)
         inserted.subscribe(new Observer[Completed] {
           override def onNext(result: Completed): Unit = None
-          override def onError(e: Throwable): Unit = println("Failed to insert: $geodoc")
-          override def onComplete(): Unit = println(s"Inserted: $geodoc")
+          override def onError(e: Throwable): Unit = println(s"Failed to insert: $transformedDoc")
+          override def onComplete(): Unit = println(s"Inserted: $transformedDoc")
         })
 
     })
